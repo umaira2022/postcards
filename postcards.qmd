@@ -16,10 +16,70 @@ library(broom)
 
 ```
 
-Sending postcards to registered voters has long been a common tactic in U.S. political campaigns. In this analysis, we use data from a 2006 field experiment in Michigan to help guide strategies for boosting turnout in the current Texas gubernatorial election, while acknowledging that Michigan may differ from both Texas and the national context.One potential weakness of our model is that the effect of postcards on voter turnout in Michigan in 2006 may not be stable over time or representative of voter behavior in Texas today.
+Sending postcards to registered voters has long been a common tactic in U.S. political campaigns. In this analysis, we use data from a 2006 field experiment in Michigan to help guide strategies for boosting turnout in the current Texas gubernatorial election, while acknowledging that Michigan may differ from both Texas and the national context.One potential weakness of our model is that the effect of postcards on voter turnout in Michigan in 2006 may not be stable over time or representative of voter behavior in Texas today.Our model indicates that the “Neighbors” postcard produces the greatest boost in turnout, particularly among infrequent voters. For those who seldom vote, this treatment increased the likelihood of voting by up to 68 percentage points—significantly more than any other intervention.
 
 $$P(Y = 1) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 X_1 + \beta_2 X_2 + \cdots + \beta_n X_n)}}$$
 
 with $Y \sim \text{Bernoulli}(\rho)$ where $\rho$ is the probability above.
 
+```{r}
+x <- shaming |> 
+  mutate(civ_engage = primary_00 + primary_02 + primary_04 + 
+               general_00 + general_02 + general_04) |> 
+  select(primary_06, treatment, sex, age, civ_engage) |> 
+  mutate(voter_class = factor(
+    case_when(
+      civ_engage %in% c(5, 6) ~ "Always Vote",
+      civ_engage %in% c(3, 4) ~ "Sometimes Vote",
+      civ_engage %in% c(1, 2) ~ "Rarely Vote"),
+         levels = c("Rarely Vote", 
+                    "Sometimes Vote", 
+                    "Always Vote"))) |>
+  mutate(voted = as.factor(primary_06))
 
+fit_vote <- logistic_reg(engine = "glm") |>
+  fit(voted ~ age + sex + treatment * voter_class, data = x)
+```
+
+
+This is our data generating mechanism.
+$$
+\widehat{\text{logit}}(P(\text{voted} = 1)) = -1.89 + 0.089 \cdot \text{treatment}_{\text{Civic Duty}} + 0.125 \cdot \text{treatment}_{\text{Hawthorne}} + 0.227 \cdot \text{treatment}_{\text{Self}} + 0.371 \cdot \text{treatment}_{\text{Neighbors}} + 0.038 \cdot \text{sex}_{\text{Male}} + 0.020 \cdot \text{age}
+$$
+
+
+```{r}
+#| cache: true
+fit_vote <- logistic_reg(engine = "glm") |>
+  fit(factor(primary_06) ~ treatment + sex + age, data = shaming)
+```
+
+
+```{r}
+#| cache: true
+library(gt)
+library(broom)
+library(dplyr)
+
+fit_vote |>
+  tidy(conf.int = TRUE) |>
+  select(term, estimate, conf.low, conf.high) |>
+  gt() |>
+  tab_header(
+    title = "Estimated Effects from Voting Model"
+  ) |>
+  tab_source_note(
+    source_note = "Source: 2006 Michigan primary voting results. Estimates are on the log-odds scale. Confidence intervals are 95%."
+  ) |>
+  cols_label(
+    term = "Term",
+    estimate = "Estimate",
+    conf.low = "Lower 95% CI",
+    conf.high = "Upper 95% CI"
+  ) |>
+  fmt_number(
+    columns = c(estimate, conf.low, conf.high),
+    decimals = 3
+  )
+
+```
