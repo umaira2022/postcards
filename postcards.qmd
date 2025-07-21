@@ -16,12 +16,6 @@ library(broom)
 
 ```
 
-Sending postcards to registered voters has long been a common tactic in U.S. political campaigns. In this analysis, we use data from a 2006 field experiment in Michigan to help guide strategies for boosting turnout in the current Texas gubernatorial election, while acknowledging that Michigan may differ from both Texas and the national context.One potential weakness of our model is that the effect of postcards on voter turnout in Michigan in 2006 may not be stable over time or representative of voter behavior in Texas today.Our model indicates that the “Neighbors” postcard produces the greatest boost in turnout, particularly among infrequent voters. For those who seldom vote, this treatment increased the likelihood of voting by up to 68 percentage points, significantly more than any other intervention.
-
-$$P(Y = 1) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 X_1 + \beta_2 X_2 + \cdots + \beta_n X_n)}}$$
-
-with $Y \sim \text{Bernoulli}(\rho)$ where $\rho$ is the probability above.
-
 ```{r}
 x <- shaming |> 
   mutate(civ_engage = primary_00 + primary_02 + primary_04 + 
@@ -41,18 +35,73 @@ fit_vote <- logistic_reg(engine = "glm") |>
   fit(voted ~ age + sex + treatment * voter_class, data = x)
 ```
 
+```{r}
+#| cache: true
+shaming <- shaming |>
+  mutate(voter_class = case_when(
+    primary_00 + general_00 + primary_02 + general_02 + primary_04 + general_04 == 0 ~ "Rarely Vote",
+    primary_00 + general_00 + primary_02 + general_02 + primary_04 + general_04 < 3 ~ "Sometimes Vote",
+    TRUE ~ "Always Vote"
+  ))
+
+fit_vote <- logistic_reg(engine = "glm") |>
+  fit(factor(primary_06) ~ treatment + sex + age + voter_class, data = shaming)
+
+```
+
+
+```{r}
+library(ggplot2)
+library(marginaleffects)
+
+# Generate the base data
+plot_data <- plot_predictions(fit_vote,
+                              type = "prob",
+                              condition = c("treatment", "voter_class"),
+                              draw = FALSE)
+
+# Now use ggplot to create a refined plot
+ggplot(plot_data, aes(x = treatment, y = estimate, fill = voter_class)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                position = position_dodge(width = 0.8),
+                width = 0.2, color = "gray30") +
+  scale_fill_brewer(palette = "Set2", name = "Voter Class") +
+  labs(
+    title = "How Different Postcards Influence Voter Turnout by Voter Type",
+    subtitle = "The 'Neighbors' message boosts turnout most, especially among infrequent voters",
+    x = "Treatment Type (Postcard Message)",
+    y = "Predicted Probability of Voting",
+    caption = "Source: 2006 Michigan Postcard Field Experiment"
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18, color = "#333333"),
+    plot.subtitle = element_text(size = 14, margin = margin(b = 12)),
+    axis.title.x = element_text(margin = margin(t = 10), face = "bold"),
+    axis.title.y = element_text(margin = margin(r = 10), face = "bold"),
+    axis.text.x = element_text(angle = 20, hjust = 1),
+    legend.position = "top",
+    legend.title = element_text(face = "bold")
+  )
+
+```
+
+
+Sending postcards to registered voters has long been a common tactic in U.S. political campaigns. In this analysis, we use data from a 2006 field experiment in Michigan to help guide strategies for boosting turnout in the current Texas gubernatorial election, while acknowledging that Michigan may differ from both Texas and the national context.One potential weakness of our model is that the effect of postcards on voter turnout in Michigan in 2006 may not be stable over time or representative of voter behavior in Texas today.Our model indicates that the “Neighbors” postcard produces the greatest boost in turnout, particularly among infrequent voters. For those who seldom vote, this treatment increased the likelihood of voting by up to 68 percentage points, significantly more than any other intervention. While the results indicate strong effects, our estimates rest on assumptions—most notably, that the Michigan sample is representative and that the model is correctly specified. For example, the estimated increase in voting probability for infrequent voters receiving the “Neighbors” postcard is about 4.4 percentage points (95% CI: 3.2 to 5.6). Real-world outcomes in Texas may differ, and actual effects could be smaller if these assumptions do not hold.
+The estimates might be wrong due to model assumptions, unmeasured variables, or the specific context of Michigan in 2006. These factors could bias results or make them less generalizable. A more flexible model might produce smaller effects and wider confidence intervals to better reflect this uncertainty.
+
+
+$$P(Y = 1) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 X_1 + \beta_2 X_2 + \cdots + \beta_n X_n)}}$$
+
+with $Y \sim \text{Bernoulli}(\rho)$ where $\rho$ is the probability above.
+
+
 
 This is our data generating mechanism.
 $$
 \widehat{\text{logit}}(P(\text{voted} = 1)) = -1.89 + 0.089 \cdot \text{treatment}_{\text{Civic Duty}} + 0.125 \cdot \text{treatment}_{\text{Hawthorne}} + 0.227 \cdot \text{treatment}_{\text{Self}} + 0.371 \cdot \text{treatment}_{\text{Neighbors}} + 0.038 \cdot \text{sex}_{\text{Male}} + 0.020 \cdot \text{age}
 $$
-
-
-```{r}
-#| cache: true
-fit_vote <- logistic_reg(engine = "glm") |>
-  fit(factor(primary_06) ~ treatment + sex + age, data = shaming)
-```
 
 
 ```{r}
