@@ -1,0 +1,17 @@
+---
+title: "Voting and Postcards"
+author: "Umaira"
+format: html
+execute: 
+  echo: false
+---
+
+```{r}
+#| message: false
+#| warning: false
+library(tidyverse)
+library(primer.data)
+
+```
+
+Sending postcards to registered voters has long been a common tactic in U.S. political campaigns. In this analysis, we use data from a 2006 field experiment in Michigan to help guide strategies for boosting turnout in the current Texas gubernatorial election, while acknowledging that Michigan may differ from both Texas and the national context.
